@@ -1013,7 +1013,7 @@ Equipe Comercial
     </div>
 
     <!-- Widgets de informações -->
-    <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="info-card p-4 rounded-2xl flex flex-col items-center">
             <span class="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">Data</span>
             <p id="widget-date" class="text-lg font-bold">--/--/----</p>
@@ -1021,10 +1021,6 @@ Equipe Comercial
         <div class="info-card p-4 rounded-2xl flex flex-col items-center">
             <span class="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">Hora</span>
             <p id="widget-time" class="text-lg font-bold tracking-widest">00:00:00</p>
-        </div>
-        <div class="info-card p-4 rounded-2xl flex flex-col items-center text-center">
-            <span class="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">Local</span>
-            <p id="widget-city" class="text-[11px] font-medium truncate w-full">São Paulo, SP</p>
         </div>
         <div class="info-card p-4 rounded-2xl flex flex-col items-center">
             <span class="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">Itens</span>
@@ -2254,46 +2250,77 @@ Equipe Comercial
         }
 
         // ============================================
-        // FUNÇÕES DE LOCALIZAÇÃO
+        // FUNÇÕES DE DATA CORRIGIDAS (GMT-3 BRASÍLIA)
         // ============================================
-        async function getLocationData() {
-            try {
-                // Primeiro tenta obter localização precisa
-                const position = await new Promise((resolve, reject) => {
-                    if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(resolve, reject);
-                    } else {
-                        reject(new Error('Geolocation not supported'));
-                    }
-                });
+        function getDataAtualFormatada() {
+            const data = new Date();
+            // Ajustar para fuso horário brasileiro (GMT-3)
+            const offsetBrasilia = -3 * 60; // -180 minutos para GMT-3
+            const offsetLocal = data.getTimezoneOffset();
+            const diferenca = offsetBrasilia - offsetLocal;
 
-                // Usar OpenStreetMap Nominatim para reverse geocoding
-                const response = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&zoom=10&accept-language=pt-br`
-                );
-                const data = await response.json();
+            // Adicionar a diferença em minutos
+            data.setMinutes(data.getMinutes() + diferenca);
 
-                const city = data.address.city || data.address.town || data.address.village || 'São Paulo';
-                const state = data.address.state || 'SP';
+            const ano = data.getFullYear();
+            const mes = String(data.getMonth() + 1).padStart(2, '0');
+            const dia = String(data.getDate()).padStart(2, '0');
 
-                document.getElementById('widget-city').innerText = `${city}, ${state}`;
+            return `${ano}-${mes}-${dia}`;
+        }
 
-            } catch (error) {
-                console.log('Usando localização padrão:', error);
-                // Fallback para São Paulo
-                document.getElementById('widget-city').innerText = "São Paulo, SP";
+        function formatarDataParaExibicao(dataString) {
+            if (!dataString) return '--/--/----';
 
-                // Opcional: tentar obter localização por IP
-                try {
-                    const ipResponse = await fetch('https://ipapi.co/json/');
-                    const ipData = await ipResponse.json();
-                    if (ipData.city && ipData.region_code) {
-                        document.getElementById('widget-city').innerText = `${ipData.city}, ${ipData.region_code}`;
-                    }
-                } catch (ipError) {
-                    console.log('Erro ao obter localização por IP:', ipError);
-                }
-            }
+            const data = new Date(dataString + 'T12:00:00-03:00'); // Forçar GMT-3
+            const dia = String(data.getDate()).padStart(2, '0');
+            const mes = String(data.getMonth() + 1).padStart(2, '0');
+            const ano = data.getFullYear();
+
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        function formatarDataPDF(dataString) {
+            if (!dataString) return '';
+
+            const data = new Date(dataString + 'T12:00:00-03:00');
+            const dia = String(data.getDate()).padStart(2, '0');
+            const mes = String(data.getMonth() + 1).padStart(2, '0');
+            const ano = data.getFullYear();
+
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        function adicionarDiasData(dataString, dias) {
+            if (!dataString) return '';
+
+            const data = new Date(dataString + 'T12:00:00-03:00');
+            data.setDate(data.getDate() + dias);
+
+            const ano = data.getFullYear();
+            const mes = String(data.getMonth() + 1).padStart(2, '0');
+            const dia = String(data.getDate()).padStart(2, '0');
+
+            return `${ano}-${mes}-${dia}`;
+        }
+
+        function getDataHoraAtual() {
+            const data = new Date();
+            // Ajustar para fuso horário brasileiro
+            const offsetBrasilia = -3 * 60;
+            const offsetLocal = data.getTimezoneOffset();
+            const diferenca = offsetBrasilia - offsetLocal;
+
+            data.setMinutes(data.getMinutes() + diferenca);
+
+            return data;
+        }
+
+        function validarData(dataString) {
+            if (!dataString) return false;
+
+            const data = new Date(dataString + 'T12:00:00-03:00');
+            return !isNaN(data.getTime());
         }
 
         // ============================================
@@ -2448,18 +2475,36 @@ Equipe Comercial
         }
 
         function configurarDatasPadrao() {
-            const hoje = new Date();
-            const dataFormatada = hoje.toISOString().split('T')[0];
+            const dataAtual = getDataAtualFormatada();
 
             // Data do orçamento (hoje)
-            document.getElementById('orcamento-data').value = dataFormatada;
+            document.getElementById('orcamento-data').value = dataAtual;
 
             // Data de validade (hoje + dias de validade padrão)
             const diasValidade = parseInt(estado.configuracoes['dias_validade'] || '10');
-            const dataValidade = new Date(hoje);
-            dataValidade.setDate(hoje.getDate() + diasValidade);
-            const validadeFormatada = dataValidade.toISOString().split('T')[0];
-            document.getElementById('orcamento-validade').value = validadeFormatada;
+            const dataValidade = adicionarDiasData(dataAtual, diasValidade);
+            document.getElementById('orcamento-validade').value = dataValidade;
+
+            // Configurar filtros de data no relatório para o mês atual
+            const primeiroDiaMes = dataAtual.substring(0, 8) + '01';
+            const ultimoDiaMes = adicionarDiasData(dataAtual.substring(0, 8) + '01', 31);
+
+            // Garantir que é o último dia do mês atual
+            const dataUltimoDia = new Date(ultimoDiaMes + 'T12:00:00-03:00');
+            while (dataUltimoDia.getMonth() === new Date(ultimoDiaMes + 'T12:00:00-03:00').getMonth()) {
+                dataUltimoDia.setDate(dataUltimoDia.getDate() - 1);
+            }
+
+            const anoUltimo = dataUltimoDia.getFullYear();
+            const mesUltimo = String(dataUltimoDia.getMonth() + 1).padStart(2, '0');
+            const diaUltimo = String(dataUltimoDia.getDate()).padStart(2, '0');
+            const ultimoDiaCorreto = `${anoUltimo}-${mesUltimo}-${diaUltimo}`;
+
+            // Preencher filtros de data no relatório
+            if (!document.getElementById('filtro-data-inicio').value) {
+                document.getElementById('filtro-data-inicio').value = primeiroDiaMes;
+                document.getElementById('filtro-data-fim').value = ultimoDiaCorreto;
+            }
 
             // Número do orçamento
             gerarNumeroOrcamento();
@@ -2467,12 +2512,13 @@ Equipe Comercial
 
         function gerarNumeroOrcamento() {
             const formato = estado.configuracoes['formato_numero'] || 'ORC-{ANO}{MES}{DIA}-{NUM}';
-            const agora = new Date();
-            const contador = estado.orcamentos.length + 1;
+            const dataAtual = getDataAtualFormatada();
+            const [ano, mes, dia] = dataAtual.split('-');
+            const contador = estado.orcamentos.filter(o => {
+                const dataOrc = o.data ? o.data.substring(0, 10) : '';
+                return dataOrc === dataAtual;
+            }).length + 1;
 
-            const ano = agora.getFullYear();
-            const mes = String(agora.getMonth() + 1).padStart(2, '0');
-            const dia = String(agora.getDate()).padStart(2, '0');
             const numero = String(contador).padStart(4, '0');
 
             let numeroOrcamento = formato
@@ -2637,6 +2683,10 @@ Equipe Comercial
                 `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
             document.getElementById('total-itens').textContent = `${totalItens} itens`;
 
+            // Atualizar status
+            const status = estado.orcamentoEditando?.status || 'pendente';
+            document.getElementById('status-orcamento').textContent = status.charAt(0).toUpperCase() + status.slice(1);
+
             return { subtotal, descontoValor, acrescimoValor, total };
         }
 
@@ -2722,8 +2772,13 @@ Equipe Comercial
                 return;
             }
 
-            // Status inicial
-            const statusInicial = estado.configuracoes['status_inicial'] || 'pendente';
+            // Status - usar status atual se estiver editando, senão usar status inicial
+            let statusOrcamento;
+            if (estado.orcamentoEditando) {
+                statusOrcamento = estado.orcamentoEditando.status || 'pendente';
+            } else {
+                statusOrcamento = estado.configuracoes['status_inicial'] || 'pendente';
+            }
 
             // Preparar dados com colunas de quantidade
             const orcamentoData = {
@@ -2743,9 +2798,9 @@ Equipe Comercial
                 "desconto_geral": parseFloat(dadosCalculados.descontoValor.toFixed(2)),
                 "acrescimo_geral": parseFloat(dadosCalculados.acrescimoValor.toFixed(2)),
                 "total": parseFloat(dadosCalculados.total.toFixed(2)),
-                "status": statusInicial,
+                "status": statusOrcamento,
                 "pdf_url": "",
-                "data_cadastro": new Date().toISOString().split('T')[0]
+                "data_cadastro": getDataAtualFormatada()
             };
 
             console.log("Dados do orçamento a serem enviados:", orcamentoData);
@@ -2758,24 +2813,33 @@ Equipe Comercial
                     const response = await apiBaserow('PATCH', IDS.orcamentos, orcamentoData, estado.orcamentoEditando.id);
                     console.log("Resposta PATCH:", response);
                     showSuccess("✅ ORÇAMENTO ATUALIZADO COM SUCESSO!");
+
+                    // Atualizar o objeto local
+                    Object.assign(estado.orcamentoEditando, orcamentoData);
                 } else {
                     // Criar novo orçamento
                     const response = await apiBaserow('POST', IDS.orcamentos, orcamentoData);
                     console.log("Resposta POST:", response);
                     showSuccess("✅ ORÇAMENTO SALVO COM SUCESSO!");
+
+                    // Adicionar à lista local
+                    if (response) {
+                        estado.orcamentos.unshift(response);
+                    }
                 }
 
                 // Habilitar botão de email
                 document.getElementById('btn-enviar-email').disabled = false;
 
-                // Sincronizar dados
-                await sincronizarTudo();
+                // Atualizar interface
+                atualizarSelects();
+                renderRelatorios();
 
-                // Limpar formulário se não estiver editando
-                if (!estado.orcamentoEditando) {
-                    limparTelaOrcamento();
-                }
+                // Atualizar status na interface
+                document.getElementById('status-orcamento').textContent =
+                    statusOrcamento.charAt(0).toUpperCase() + statusOrcamento.slice(1);
 
+                showSuccess("✅ ORÇAMENTO SALVO COM SUCESSO!");
                 hideLoading();
 
             } catch (error) {
@@ -2813,9 +2877,9 @@ Equipe Comercial
             const condEspeciais = document.getElementById('cond-especiais').value;
             const observacoes = document.getElementById('orcamento-observacoes').value;
 
-            // Formatar datas
-            const dataFormatada = new Date(dataOrcamento).toLocaleDateString('pt-BR');
-            const validadeFormatada = new Date(dataValidade).toLocaleDateString('pt-BR');
+            // Formatar datas usando a função corrigida
+            const dataFormatada = formatarDataPDF(dataOrcamento);
+            const validadeFormatada = formatarDataPDF(dataValidade);
 
             // Preencher template PDF
             document.getElementById('pdf-logo').src = empresa.logo || '';
@@ -3019,7 +3083,7 @@ Equipe Comercial
                 uf: document.getElementById('cli-uf').value,
                 cep: document.getElementById('cli-cep').value.trim(),
                 observações: document.getElementById('cli-observacoes').value.trim(),
-                data_cadastro: new Date().toISOString()
+                data_cadastro: getDataAtualFormatada()
             };
 
             try {
@@ -3160,7 +3224,7 @@ Equipe Comercial
                 "uf": document.getElementById('emp-uf').value,
                 "cep": document.getElementById('emp-cep').value.trim(),
                 "logo": document.getElementById('emp-logo').value.trim(),
-                "data_cadastro": new Date().toISOString().split('T')[0]
+                "data_cadastro": getDataAtualFormatada()
             };
 
             console.log("Dados sendo enviados:", empresaData);
@@ -3295,7 +3359,7 @@ Equipe Comercial
                 estoque_mínimo: parseInt(document.getElementById('item-estoque-min').value) || 0,
                 estoque_atual: parseInt(document.getElementById('item-estoque-atual').value) || 0,
                 imagem_url: document.getElementById('item-imagem').value.trim(),
-                data_cadastro: new Date().toISOString()
+                data_cadastro: getDataAtualFormatada()
             };
 
             try {
@@ -3485,11 +3549,13 @@ Equipe Comercial
                         statusClass = 'status-reprovado';
                         statusIcon = '🚫';
                         break;
+                    default:
+                        statusClass = 'status-pendente';
+                        statusIcon = '⏳';
                 }
 
                 // Formatar data
-                const dataFormatada = orcamento.data ?
-                    new Date(orcamento.data).toLocaleDateString('pt-BR') : '--/--/----';
+                const dataFormatada = formatarDataParaExibicao(orcamento.data);
 
                 // Formatar valor
                 const valor = parseFloat(orcamento.total || 0);
@@ -3686,10 +3752,13 @@ Equipe Comercial
             document.getElementById('cond-especiais').value = orcamento.condicoes_pagamento || '';
             document.getElementById('orcamento-observacoes').value = orcamento.observacoes || '';
 
-            document.getElementById('desconto-percentual').value =
-                orcamento.desconto_geral ? ((parseFloat(orcamento.desconto_geral) / parseFloat(orcamento.subtotal)) * 100).toFixed(2) : 0;
-            document.getElementById('acrescimo-percentual').value =
-                orcamento.acrescimo_geral ? ((parseFloat(orcamento.acrescimo_geral) / parseFloat(orcamento.subtotal)) * 100).toFixed(2) : 0;
+            // Calcular percentuais de desconto e acréscimo
+            const subtotal = parseFloat(orcamento.subtotal || 0);
+            const descontoGeral = parseFloat(orcamento.desconto_geral || 0);
+            const acrescimoGeral = parseFloat(orcamento.acrescimo_geral || 0);
+
+            document.getElementById('desconto-percentual').value = subtotal > 0 ? ((descontoGeral / subtotal) * 100).toFixed(2) : 0;
+            document.getElementById('acrescimo-percentual').value = subtotal > 0 ? ((acrescimoGeral / subtotal) * 100).toFixed(2) : 0;
 
             // Limpar e carregar itens
             document.getElementById('lista-itens').innerHTML = "";
@@ -3722,6 +3791,10 @@ Equipe Comercial
             // Habilitar botão de email
             document.getElementById('btn-enviar-email').disabled = false;
 
+            // Atualizar status na interface
+            document.getElementById('status-orcamento').textContent =
+                orcamento.status.charAt(0).toUpperCase() + orcamento.status.slice(1);
+
             // Mudar para aba de orçamento
             switchTab('orcamento');
 
@@ -3734,11 +3807,25 @@ Equipe Comercial
             try {
                 await apiBaserow('PATCH', IDS.orcamentos, {
                     status: novoStatus,
-                    ultima_atualizacao: new Date().toISOString()
+                    ultima_atualizacao: getDataAtualFormatada()
                 }, orcamentoId);
 
                 showSuccess(`Status alterado para ${novoStatus}!`);
-                await sincronizarTudo();
+
+                // Atualizar localmente
+                const orcamento = estado.orcamentos.find(o => o.id == orcamentoId);
+                if (orcamento) {
+                    orcamento.status = novoStatus;
+                }
+
+                // Se estiver editando este orçamento, atualizar interface
+                if (estado.orcamentoEditando && estado.orcamentoEditando.id == orcamentoId) {
+                    estado.orcamentoEditando.status = novoStatus;
+                    document.getElementById('status-orcamento').textContent =
+                        novoStatus.charAt(0).toUpperCase() + novoStatus.slice(1);
+                }
+
+                renderRelatorios();
 
             } catch (error) {
                 showError(`Erro ao alterar status: ${error.message}`);
@@ -3752,7 +3839,15 @@ Equipe Comercial
                 showLoading("Excluindo orçamento...");
                 await apiBaserow('DELETE', IDS.orcamentos, null, id);
                 showSuccess("✅ ORÇAMENTO EXCLUÍDO COM SUCESSO!");
-                await sincronizarTudo();
+
+                // Remover localmente
+                estado.orcamentos = estado.orcamentos.filter(o => o.id != id);
+                if (estado.orcamentoEditando && estado.orcamentoEditando.id == id) {
+                    estado.orcamentoEditando = null;
+                    limparTelaOrcamento();
+                }
+
+                renderRelatorios();
                 hideLoading();
             } catch (error) {
                 showError(`Erro ao excluir orçamento: ${error.message}`);
@@ -3796,7 +3891,7 @@ Equipe Comercial
             orcamentosFiltrados.forEach(o => {
                 const linha = [
                     `"${o.numero || ''}"`,
-                    `"${o.data || ''}"`,
+                    `"${formatarDataParaExibicao(o.data) || ''}"`,
                     `"${o.empresa || ''}"`,
                     `"${o.cliente || ''}"`,
                     `"${o.quantidade_itens || '0'}"`,
@@ -3817,7 +3912,7 @@ Equipe Comercial
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `relatorio_orcamentos_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.download = `relatorio_orcamentos_${getDataAtualFormatada()}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -3846,8 +3941,8 @@ Equipe Comercial
             let mensagem = document.getElementById('email-message').value;
             mensagem = mensagem
                 .replace(/\[NUMERO_ORCAMENTO\]/g, orcamento.numero)
-                .replace(/\[DATA_ORCAMENTO\]/g, new Date(orcamento.data).toLocaleDateString('pt-BR'))
-                .replace(/\[VALIDADE\]/g, new Date(orcamento.validade).toLocaleDateString('pt-BR'))
+                .replace(/\[DATA_ORCAMENTO\]/g, formatarDataParaExibicao(orcamento.data))
+                .replace(/\[VALIDADE\]/g, formatarDataParaExibicao(orcamento.validade))
                 .replace(/\[TOTAL\]/g, `R$ ${parseFloat(orcamento.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
                 .replace(/\[FORMA_PAGAMENTO\]/g, orcamento.forma_pagamento || '')
                 .replace(/\[PRAZO_ENTREGA\]/g, orcamento.prazo_entrega || '')
@@ -3927,8 +4022,9 @@ Equipe Comercial
                 showSuccess("✅ EMAIL ENVIADO COM SUCESSO!");
                 fecharEmailModal();
 
-                // Atualizar dados
-                await sincronizarTudo();
+                // Atualizar status localmente
+                orcamentoAtualParaEmail.status = 'enviado';
+                renderRelatorios();
 
                 hideLoading();
 
@@ -4883,7 +4979,7 @@ Equipe Comercial
             }
 
             resultados.innerHTML = encontrados.map(o => {
-                const dataFormatada = o.data ? new Date(o.data).toLocaleDateString('pt-BR') : '';
+                const dataFormatada = formatarDataParaExibicao(o.data);
                 return `
                     <div class="search-item" onclick="carregarOrcamentoParaEdicao(${o.id})">
                         <div class="font-bold text-cyan-400">${o.numero}</div>
@@ -4941,6 +5037,9 @@ Equipe Comercial
             // Atualizar selects
             atualizarSelects();
 
+            // Resetar status
+            document.getElementById('status-orcamento').textContent = 'Pendente';
+
             showSuccess("Tela de orçamento limpa!");
         }
 
@@ -4948,9 +5047,19 @@ Equipe Comercial
         // FUNÇÕES DE UTILIDADE
         // ============================================
         function updateClock() {
-            const now = new Date();
-            document.getElementById('widget-date').innerText = now.toLocaleDateString('pt-BR');
-            document.getElementById('widget-time').innerText = now.toLocaleTimeString('pt-BR');
+            const now = getDataHoraAtual();
+
+            // Formatar data para exibição
+            const dia = String(now.getDate()).padStart(2, '0');
+            const mes = String(now.getMonth() + 1).padStart(2, '0');
+            const ano = now.getFullYear();
+            document.getElementById('widget-date').innerText = `${dia}/${mes}/${ano}`;
+
+            // Formatar hora para exibição
+            const hora = String(now.getHours()).padStart(2, '0');
+            const minuto = String(now.getMinutes()).padStart(2, '0');
+            const segundo = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('widget-time').innerText = `${hora}:${minuto}:${segundo}`;
         }
 
         function showSuccess(msg) {
@@ -5007,7 +5116,42 @@ Equipe Comercial
         }
 
         // ============================================
-        // MANIPULAÇÃO DO TECLADO PARA A CALCULADORA
+        // FUNÇÕES DE MÁSCARAS
+        // ============================================
+        function maskDoc(input) {
+            let value = input.value.replace(/\D/g, '');
+
+            if (value.length <= 11) {
+                // CPF
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            } else {
+                // CNPJ
+                value = value.substring(0, 14);
+                value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+                value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+                value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+                value = value.replace(/(\d{4})(\d)/, '$1-$2');
+            }
+
+            input.value = value;
+        }
+
+        function maskCNPJ(input) {
+            let value = input.value.replace(/\D/g, '');
+            value = value.substring(0, 14);
+
+            value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+            value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+            value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+            value = value.replace(/(\d{4})(\d)/, '$1-$2');
+
+            input.value = value;
+        }
+
+        // ============================================
+        // MANIPULAÇÃO DO TECLADO
         // ============================================
         document.addEventListener('keydown', function (event) {
             const calcDisplay = document.getElementById('calc-display');
@@ -5112,9 +5256,6 @@ Equipe Comercial
             updateClock();
             setInterval(updateClock, 1000);
 
-            // Obter localização atual
-            getLocationData();
-
             // Carregar tema salvo
             loadTheme();
 
@@ -5139,24 +5280,6 @@ Equipe Comercial
                         el.classList.add('hidden');
                     }
                 });
-            });
-
-            // Configurar data atual
-            const hoje = new Date().toISOString().split('T')[0];
-            document.getElementById('filtro-data-inicio').value = hoje;
-            document.getElementById('filtro-data-fim').value = hoje;
-
-            // Configurar foco no campo de busca ao pressionar /
-            document.addEventListener('keydown', function (event) {
-                if (event.key === '/' && !event.ctrlKey && !event.altKey && !event.metaKey) {
-                    const activeElement = document.activeElement;
-                    const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
-
-                    if (!isInput) {
-                        document.getElementById('search-orcamento').focus();
-                        event.preventDefault();
-                    }
-                }
             });
 
             showSuccess("Sistema Orçamento Pro V5.1 carregado com sucesso!");
@@ -5253,8 +5376,17 @@ Equipe Comercial
         window.toggleTheme = toggleTheme;
         window.loadTheme = loadTheme;
 
-        // Funções de localização
-        window.getLocationData = getLocationData;
+        // Funções de data corrigidas
+        window.getDataAtualFormatada = getDataAtualFormatada;
+        window.formatarDataParaExibicao = formatarDataParaExibicao;
+        window.formatarDataPDF = formatarDataPDF;
+        window.adicionarDiasData = adicionarDiasData;
+        window.getDataHoraAtual = getDataHoraAtual;
+        window.validarData = validarData;
+
+        // Funções de formatação
+        window.formatarCNPJ = formatarCNPJ;
+        window.formatarCPF = formatarCPF;
 
     </script>
 </body>
