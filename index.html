@@ -1289,6 +1289,13 @@ Equipe Comercial
                                         </td>
                                         <td></td>
                                     </tr>
+                                    <tr>
+                                        <td colspan="3" class="pt-2 text-right text-slate-500 text-sm font-bold">
+                                            TOTAL GERAL:</td>
+                                        <td colspan="2" class="pt-2 text-right text-2xl font-bold text-emerald-400"
+                                            id="total-geral-tabela">R$ 0,00</td>
+                                        <td></td>
+                                    </tr>
                                 </tfoot>
                             </table>
                         </div>
@@ -1355,7 +1362,7 @@ Equipe Comercial
                     <!-- Resumo e Ações -->
                     <div class="futuristic-card p-6">
                         <div class="text-center mb-6">
-                            <p class="text-[10px] text-slate-500 uppercase mb-1">Total Geral do Orçamento</p>
+                            <p class="text-[10px] text-slate-500 uppercase mb-1">Total da Proposta</p>
                             <p class="text-4xl font-bold text-emerald-400 mb-2" id="total-geral">R$ 0,00</p>
                             <div class="flex justify-center items-center gap-4 text-xs text-slate-500">
                                 <div class="flex items-center">
@@ -2066,7 +2073,7 @@ Equipe Comercial
         <i class="fas fa-calculator"></i>
     </button>
 
-    <!-- Template PDF -->
+    <!-- Template PDF (MODIFICADO - Sem desconto e acréscimo) -->
     <div id="pdf-template">
         <div class="flex justify-between items-center border-b-2 border-black pb-4 mb-8">
             <div>
@@ -2111,7 +2118,7 @@ Equipe Comercial
             <tbody id="pdf-itens-corpo"></tbody>
             <tfoot>
                 <tr>
-                    <td colspan="3" rowspan="3" class="align-top">
+                    <td colspan="3" rowspan="2" class="align-top">
                         <div class="text-xs text-gray-600 mt-4">
                             <p class="font-bold mb-1">CONDIÇÕES COMERCIAIS:</p>
                             <p id="pdf-cond-pagamento"></p>
@@ -2123,14 +2130,6 @@ Equipe Comercial
                     </td>
                     <td class="text-right font-bold text-sm">SUBTOTAL:</td>
                     <td class="text-right font-bold" id="pdf-subtotal"></td>
-                </tr>
-                <tr>
-                    <td class="text-right font-bold text-sm text-red-600">DESCONTO:</td>
-                    <td class="text-right font-bold text-red-600" id="pdf-desconto"></td>
-                </tr>
-                <tr>
-                    <td class="text-right font-bold text-sm text-blue-600">ACRÉSCIMO:</td>
-                    <td class="text-right font-bold text-blue-600" id="pdf-acrescimo"></td>
                 </tr>
                 <tr>
                     <td colspan="3">
@@ -2681,6 +2680,8 @@ Equipe Comercial
 
             document.getElementById('total-geral').textContent =
                 `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            document.getElementById('total-geral-tabela').textContent =
+                `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
             document.getElementById('total-itens').textContent = `${totalItens} itens`;
 
             // Atualizar status
@@ -2940,11 +2941,13 @@ Equipe Comercial
                 `;
             });
 
-            // Totais
+            // NO PDF: USAR APENAS O SUBTOTAL COMO TOTAL (SEM DESCONTO/ACRÉSCIMO)
+            const totalPDF = dadosCalculados.subtotal; // Usar apenas subtotal, ignorar desconto/acréscimo
+
             document.getElementById('pdf-subtotal').textContent = `R$ ${dadosCalculados.subtotal.toFixed(2)}`;
-            document.getElementById('pdf-desconto').textContent = `R$ ${dadosCalculados.descontoValor.toFixed(2)}`;
-            document.getElementById('pdf-acrescimo').textContent = `R$ ${dadosCalculados.acrescimoValor.toFixed(2)}`;
-            document.getElementById('pdf-total').textContent = `R$ ${dadosCalculados.total.toFixed(2)}`;
+
+            // REMOVIDO: Linhas de desconto e acréscimo do PDF
+            document.getElementById('pdf-total').textContent = `R$ ${totalPDF.toFixed(2)}`;
 
             // Gerar PDF
             try {
